@@ -1,134 +1,238 @@
 <template>
-  <v-container>
-    <!-- Calendario -->
-    <v-sheet height="600">
-      <v-calendar
-        v-model="currentDate"
-        type="month"
-        :events="events"
-        @click:event="openEvent"
-        @click:date="openForm"
-      />
-    </v-sheet>
+  <v-row class="fill-height">
+    <v-col>
+      <!-- Calendario para mostrar los mealLogs -->
+      <v-sheet height="600">
+        <v-calendar
+          ref="calendar"
+          v-model="today"
+          :events="events"
+          color="primary"
+          type="month"
+          @click:date="openForm"
+        ></v-calendar>
+      </v-sheet>
 
-    <!-- Botón flotante "+" -->
-    <v-btn 
-      color="primary" 
-      fab 
-      fixed 
-      bottom 
-      right 
-      @click="openForm(currentDate)"
-    >
-      <v-icon>mdi-plus</v-icon>
-    </v-btn>
+      <!-- Botón flotante para abrir el formulario (se usa la fecha actual: today[0]) -->
+      <v-btn fab color="primary" class="ma-2" @click="openForm(today[0])">
+        <v-icon>mdi-plus</v-icon>
+      </v-btn>
+    </v-col>
+  </v-row>
 
-    <!-- Diálogo para crear un nuevo registro -->
-    <v-dialog v-model="dialog" max-width="500">
-      <v-card>
-        <v-card-title>Nuevo Registro</v-card-title>
-        <v-card-text>
-          <v-text-field v-model="newMeal.date" label="Fecha" readonly></v-text-field>
-          <v-select v-model="newMeal.mealType" :items="mealTypes" label="Tipo de comida"></v-select>
-          <v-select v-model="newMeal.mood" :items="moods" label="Estado de ánimo"></v-select>
-          <v-textarea v-model="newMeal.foodItems" label="Comida"></v-textarea>
-          <v-text-field v-model="newMeal.location" label="Ubicación"></v-text-field>
-        </v-card-text>
-        <v-card-actions>
-          <v-btn text @click="dialog = false">Cancelar</v-btn>
-          <v-btn color="primary" @click="saveMeal">Guardar</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-  </v-container>
+  <!-- Diálogo con el formulario para registrar un nuevo mealLog -->
+  <v-dialog v-model="showDialog" max-width="600">
+    <v-card>
+      <v-card-title>
+        Nuevo Registro de Comida
+      </v-card-title>
+      <v-card-text>
+        <v-form ref="mealForm">
+          <v-text-field v-model="newMeal.email" label="Email"></v-text-field>
+          <v-select
+            v-model="newMeal.mealType"
+            :items="mealTypes"
+            label="Tipo de Comida"
+          ></v-select>
+          <!-- Campo de Fecha editable con control nativo -->
+          <v-text-field
+            v-model="newMeal.date"
+            label="Fecha"
+            type="date"
+          ></v-text-field>
+          <!-- Campo de Hora editable con control nativo -->
+          <v-text-field
+            v-model="newMeal.time"
+            label="Hora"
+            type="time"
+          ></v-text-field>
+          <v-textarea
+            v-model="newMeal.foodItems"
+            label="Comida"
+          ></v-textarea>
+          <v-text-field
+            v-model="newMeal.calories"
+            label="Calorías"
+            type="number"
+          ></v-text-field>
+          <v-text-field
+            v-model="newMeal.photoUrl"
+            label="Foto URL"
+          ></v-text-field>
+          <v-textarea
+            v-model="newMeal.notes"
+            label="Notas"
+          ></v-textarea>
+          <v-text-field
+            v-model="newMeal.location"
+            label="Ubicación"
+          ></v-text-field>
+          <!-- Selector de estados de ánimo: mostramos en español, pero el valor se envía en inglés -->
+          <v-select
+            v-model="newMeal.mood"
+            :items="moodOptions"
+            label="Estado de Ánimo"
+            item-title="text"
+            item-value="value"
+          ></v-select>
+          <v-text-field
+            v-model="newMeal.dietType"
+            label="Tipo de Dieta"
+          ></v-text-field>
+          <v-text-field
+            v-model="newMeal.diners"
+            label="Cantidad de Comensales"
+            type="number"
+          ></v-text-field>
+          <v-text-field
+            v-model="newMeal.companions"
+            label="Compañeros"
+          ></v-text-field>
+        </v-form>
+      </v-card-text>
+      <!-- Botones en horizontal -->
+      <v-card-actions class="d-flex justify-end">
+        <v-btn text class="mr-2" @click="showDialog = false">Cancelar</v-btn>
+        <v-btn color="primary" @click="saveMealLog">Guardar</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script>
-import axios from 'axios';
+import axios from 'axios'
 
 export default {
   data() {
     return {
-      currentDate: new Date().toISOString().split('T')[0], // Fecha actual en formato YYYY-MM-DD
-      dialog: false,
+      // VCalendar espera un array, por lo que "today" es [new Date()]
+      today: [new Date()],
       events: [],
+      mealTypes: ['DESAYUNO', 'ALMUERZO', 'CENA', 'SNACK'],
+      // Opciones para el selector de "Estado de Ánimo":
+      // El valor (value) se envía en inglés, mientras que el texto (text) se muestra en español
+      moodOptions: [
+        { value: 'OK', text: 'Bien' },
+        { value: 'HAPPY', text: 'Feliz' },
+        { value: 'NEUTRAL', text: 'Neutral' },
+        { value: 'SAD', text: 'Triste' },
+        { value: 'STRESSED', text: 'Estresado' },
+        { value: 'TIRED', text: 'Cansado' },
+        { value: 'ANXIOUS', text: 'Ansioso' },
+        { value: 'UNWELL', text: 'Mal' },
+        { value: 'FRUSTRATED', text: 'Frustrado' },
+        { value: 'SICK', text: 'Enfermo' }
+      ],
+      // Modelo para el nuevo mealLog, con ubicación y compañeros por defecto
       newMeal: {
-        email: "joselitosbd@gmail.com",
-        mealType: "",
-        date: "",
-        time: "20:00:00",
-        foodItems: "",
+        email: 'joselitosbd@gmail.com',
+        mealType: '',
+        date: '',
+        time: '20:00:00',
+        foodItems: '',
         calories: null,
-        photoUrl: "",
-        notes: "",
-        location: "",
-        mood: "",
-        dietType: null,
+        photoUrl: '',
+        notes: '',
+        location: 'Casa Alzina',     // Valor por defecto
+        mood: '',
+        dietType: '',
         diners: 1,
-        companions: "",
+        companions: 'Miriam, Jose A',  // Valor por defecto
         createdAt: new Date().toISOString()
       },
-      mealTypes: ["DESAYUNO", "ALMUERZO", "CENA", "SNACK"],
-      moods: ["OK", "HAPPY", "NEUTRAL", "SAD", "STRESSED", "TIRED", "ANXIOUS", "UNWELL", "FRUSTRATED", "SICK"],
-    };
+      showDialog: false
+    }
   },
   mounted() {
-    this.fetchMeals();
+    this.fetchMealLogs()
   },
   methods: {
-    async fetchMeals() {
-      const year = this.currentDate.substring(0, 4); // Extrae el año
-      const month = this.currentDate.substring(5, 7); // Extrae el mes
-      try {
-        const response = await axios.get(`http://localhost:8080/meal-logs`, {
-          params: { year, month }
-        });
-        this.events = response.data.map(meal => ({
-          name: meal.foodItems,
-          start: meal.date,
-          color: this.getMoodColor(meal.mood)
-        }));
-      } catch (error) {
-        console.error("Error obteniendo registros:", error);
-      }
-    },
-    openEvent(event) {
-      alert(`Detalles: ${event.name}`);
-    },
-    openForm(date) {
-      this.newMeal.date = date;
-      this.dialog = true;
-    },
-    async saveMeal() {
-      try {
-        await axios.post("http://localhost:8080/meal-logs", this.newMeal);
-        this.dialog = false;
-        this.fetchMeals(); // Recargar eventos
-      } catch (error) {
-        console.error("Error al guardar:", error);
-      }
+    fetchMealLogs() {
+      // Extraemos el año y mes del primer elemento de "today"
+      const current = this.today[0]
+      const year = current.getFullYear()
+      const month = current.getMonth() + 1
+
+      axios
+        .get('http://localhost:8080/api/v1/meal-logs', { params: { year, month } })
+        .then(response => {
+          // Convertimos cada mealLog en un objeto "event" para el calendario.
+          this.events = response.data.map(meal => {
+            const startDate = new Date(meal.date + 'T' + meal.time)
+            const endDate = new Date(startDate.getTime() + 60 * 60 * 1000) // 1 hora después
+            return {
+              title: meal.foodItems,
+              start: startDate,
+              end: endDate,
+              color: this.getMoodColor(meal.mood)
+            }
+          })
+        })
+        .catch(error => {
+          console.error('Error fetching meal logs:', error)
+        })
     },
     getMoodColor(mood) {
       const moodColors = {
-        OK: "green",
-        HAPPY: "blue",
-        NEUTRAL: "grey",
-        SAD: "purple",
-        STRESSED: "red",
-        TIRED: "orange",
-        ANXIOUS: "pink",
-        UNWELL: "brown",
-        FRUSTRATED: "yellow",
-        SICK: "black"
-      };
-      return moodColors[mood] || "grey";
+        OK: 'green',
+        HAPPY: 'blue',
+        NEUTRAL: 'grey',
+        SAD: 'purple',
+        STRESSED: 'red',
+        TIRED: 'orange',
+        ANXIOUS: 'pink',
+        UNWELL: 'brown',
+        FRUSTRATED: 'yellow',
+        SICK: 'black'
+      }
+      return moodColors[mood.toUpperCase()] || 'grey'
+    },
+    openForm(date) {
+      // Se espera que "date" sea un objeto Date; se formatea a "YYYY-MM-DD"
+      if (date instanceof Date) {
+        this.newMeal.date = date.toISOString().substring(0, 10)
+      } else {
+        this.newMeal.date = new Date(date).toISOString().substring(0, 10)
+      }
+      this.showDialog = true
+    },
+    saveMealLog() {
+      axios
+        .post('http://localhost:8080/api/v1/meal-logs', this.newMeal)
+        .then(response => {
+          this.showDialog = false
+          // Actualizamos los eventos del mes actual
+          this.fetchMealLogs()
+          this.resetNewMeal()
+        })
+        .catch(error => {
+          console.error('Error saving meal log:', error)
+        })
+    },
+    resetNewMeal() {
+      this.newMeal = {
+        email: 'joselitosbd@gmail.com',
+        mealType: '',
+        date: '',
+        time: '20:00:00',
+        foodItems: '',
+        calories: null,
+        photoUrl: '',
+        notes: '',
+        location: 'Casa Alzina',       // Valor por defecto
+        mood: '',
+        dietType: '',
+        diners: 2,
+        companions: 'Miriam, Jose A',  // Valor por defecto
+        createdAt: new Date().toISOString()
+      }
     }
   }
-};
+}
 </script>
 
 <style scoped>
-.v-btn {
+.ma-2 {
   position: fixed;
   right: 20px;
   bottom: 20px;
