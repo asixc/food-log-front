@@ -49,6 +49,7 @@
           <v-textarea
             v-model="newMeal.foodItems"
             label="Comida"
+            :rules="[ v => !!v || 'El campo Comida es obligatorio' ]"
           ></v-textarea>
           <v-text-field
             v-model="newMeal.calories"
@@ -67,13 +68,14 @@
             v-model="newMeal.location"
             label="Ubicación"
           ></v-text-field>
-          <!-- Selector de estados de ánimo: mostramos en español, pero el valor se envía en inglés -->
+          <!-- Selector de estados de ánimo: se muestran en español, pero el valor se envía en inglés -->
           <v-select
             v-model="newMeal.mood"
             :items="moodOptions"
             label="Estado de Ánimo"
             item-title="text"
             item-value="value"
+            :rules="[ v => !!v || 'El campo Estado de Ánimo es obligatorio' ]"
           ></v-select>
           <v-text-field
             v-model="newMeal.dietType"
@@ -105,12 +107,11 @@ import axios from 'axios'
 export default {
   data() {
     return {
-      // VCalendar espera un array, por lo que "today" es [new Date()]
+      // VCalendar espera un array; "today" se inicializa con la fecha actual
       today: [new Date()],
       events: [],
-      mealTypes: ['DESAYUNO', 'ALMUERZO', 'CENA', 'SNACK'],
-      // Opciones para el selector de "Estado de Ánimo":
-      // El valor (value) se envía en inglés, mientras que el texto (text) se muestra en español
+      mealTypes: ['DESAYUNO', 'COMIDA', 'CENA', 'MERIENDA'],
+      // Opciones para el selector de "Estado de Ánimo"
       moodOptions: [
         { value: 'OK', text: 'Bien' },
         { value: 'HAPPY', text: 'Feliz' },
@@ -128,7 +129,7 @@ export default {
         email: 'joselitosbd@gmail.com',
         mealType: '',
         date: '',
-        time: '20:00:00',
+        time: '', // Se asignará la hora actual al abrir el formulario
         foodItems: '',
         calories: null,
         photoUrl: '',
@@ -148,7 +149,7 @@ export default {
   },
   methods: {
     fetchMealLogs() {
-      // Extraemos el año y mes del primer elemento de "today"
+      // Extraemos el año y el mes del primer elemento del array "today"
       const current = this.today[0]
       const year = current.getFullYear()
       const month = current.getMonth() + 1
@@ -156,7 +157,7 @@ export default {
       axios
         .get('http://localhost:8080/api/v1/meal-logs', { params: { year, month } })
         .then(response => {
-          // Convertimos cada mealLog en un objeto "event" para el calendario.
+          // Convertimos cada mealLog en un objeto "event" para el calendario
           this.events = response.data.map(meal => {
             const startDate = new Date(meal.date + 'T' + meal.time)
             const endDate = new Date(startDate.getTime() + 60 * 60 * 1000) // 1 hora después
@@ -188,15 +189,17 @@ export default {
       return moodColors[mood.toUpperCase()] || 'grey'
     },
     openForm(date) {
-      // Se espera que "date" sea un objeto Date; se formatea a "YYYY-MM-DD"
-      if (date instanceof Date) {
-        this.newMeal.date = date.toISOString().substring(0, 10)
-      } else {
-        this.newMeal.date = new Date(date).toISOString().substring(0, 10)
-      }
+      // Al abrir el formulario, asignamos la fecha y la hora actuales
+      const now = new Date()
+      this.newMeal.date = now.toISOString().substring(0, 10)
+      this.newMeal.time = now.toTimeString().substring(0, 8) // "HH:mm:ss"
       this.showDialog = true
     },
     saveMealLog() {
+      if (!this.$refs.mealForm.validate()) {
+        // Si la validación falla, no se continúa con la petición
+        return;
+      }
       axios
         .post('http://localhost:8080/api/v1/meal-logs', this.newMeal)
         .then(response => {
@@ -214,12 +217,12 @@ export default {
         email: 'joselitosbd@gmail.com',
         mealType: '',
         date: '',
-        time: '20:00:00',
+        time: '',
         foodItems: '',
         calories: null,
         photoUrl: '',
         notes: '',
-        location: 'Casa Alzina',       // Valor por defecto
+        location: 'Casa Alzina',
         mood: '',
         dietType: '',
         diners: 2,
